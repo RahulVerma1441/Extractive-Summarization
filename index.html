@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Query Based Text Summarization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .form-container {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #4facfe;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .text-input {
+            min-height: 200px;
+        }
+
+        .range-container {
+            position: relative;
+        }
+
+        .range-input {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: #e1e8ed;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .range-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4facfe;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .range-input::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4facfe;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .range-value {
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4facfe;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .range-value::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #4facfe;
+        }
+
+        .api-hint {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: #0369a1;
+            display: none;
+        }
+
+        .api-hint.show {
+            display: block;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-container {
+            display: none;
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e1e8ed;
+        }
+
+        .result-container h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .result-text {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e1e8ed;
+            line-height: 1.6;
+            color: #444;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .form-container {
+                padding: 25px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Query Based Text Summarization</h1>
+            <p>Transform any text into concise, query-focused summaries</p>
+        </div>
+
+        <div class="form-container">
+            <form id="summarizationForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="contentType">Content Type</label>
+                        <select id="contentType" name="contentType" required>
+                            <option value="">Select content type</option>
+                            <option value="simple-text">Simple Text</option>
+                            <option value="web-pages">Web Pages</option>
+                            <option value="comments">Comments</option>
+                            <option value="social-media">Social Media Posts</option>
+                            <option value="documents">Documents</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="compressionRatio">Compression Ratio</label>
+                        <div class="range-container">
+                            <input type="range" id="compressionRatio" name="compressionRatio" 
+                                   min="10" max="90" value="50" class="range-input">
+                            <div class="range-value" id="rangeValue">50%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="userQuery">User Query</label>
+                    <textarea id="userQuery" name="userQuery" 
+                              placeholder="Enter your specific query or focus area for summarization..."
+                              required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="textContent" id="textLabel">Text Content</label>
+                    <textarea id="textContent" name="textContent" class="text-input"
+                              placeholder="Paste your text content here..."
+                              required></textarea>
+                    <div class="api-hint" id="apiHint">
+                        For this content type, you can provide API keys or endpoints to fetch the content automatically.
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">Generate Summary</button>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing your request...</p>
+            </div>
+
+            <div class="result-container" id="resultContainer">
+                <h3>Generated Summary</h3>
+                <div class="result-text" id="resultText"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update compression ratio display
+        const compressionRatio = document.getElementById('compressionRatio');
+        const rangeValue = document.getElementById('rangeValue');
+
+        compressionRatio.addEventListener('input', function() {
+            rangeValue.textContent = this.value + '%';
+            rangeValue.style.left = (this.value - 10) * 100 / 80 + '%';
+        });
+
+        // Handle content type changes
+        const contentType = document.getElementById('contentType');
+        const textLabel = document.getElementById('textLabel');
+        const textContent = document.getElementById('textContent');
+        const apiHint = document.getElementById('apiHint');
+
+        contentType.addEventListener('change', function() {
+            const selectedType = this.value;
+            
+            if (selectedType === 'simple-text') {
+                textLabel.textContent = 'Text Content';
+                textContent.placeholder = 'Paste your text content here...';
+                apiHint.classList.remove('show');
+            } else if (selectedType === 'web-pages') {
+                textLabel.textContent = 'Web Page URL or API Key';
+                textContent.placeholder = 'Enter web page URL or API key for web scraping service...';
+                apiHint.classList.add('show');
+                apiHint.textContent = 'You can provide a URL directly or API credentials for web scraping services.';
+            } else if (selectedType === 'comments') {
+                textLabel.textContent = 'Comments API Configuration';
+                textContent.placeholder = 'Enter API key and endpoint for comments (e.g., Reddit API, YouTube API)...';
+                apiHint.classList.add('show');
+                apiHint.textContent = 'Provide API keys for platforms like Reddit, YouTube, or other comment systems.';
+            } else if (selectedType === 'social-media') {
+                textLabel.textContent = 'Social Media API Configuration';
+                textContent.placeholder = 'Enter API credentials for social media platforms...';
+                apiHint.classList.add('show');
+                apiHint.textContent = 'Configure API access for Twitter, Facebook, Instagram, or other social platforms.';
+            } else if (selectedType === 'documents') {
+                textLabel.textContent = 'Document Source';
+                textContent.placeholder = 'Upload document or provide document API access...';
+                apiHint.classList.add('show');
+                apiHint.textContent = 'You can paste document content directly or provide API access to document services.';
+            } else {
+                textLabel.textContent = 'Content Input';
+                textContent.placeholder = 'Configure your content source...';
+                apiHint.classList.remove('show');
+            }
+        });
+
+        // Handle form submission
+        const form = document.getElementById('summarizationForm');
+        const loading = document.getElementById('loading');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultText = document.getElementById('resultText');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Show loading
+            loading.style.display = 'block';
+            resultContainer.style.display = 'none';
+            
+            // Get form data
+            const formData = new FormData(form);
+            const data = {
+                contentType: formData.get('contentType'),
+                compressionRatio: formData.get('compressionRatio'),
+                userQuery: formData.get('userQuery'),
+                textContent: formData.get('textContent')
+            };
+            
+            try {
+                // Call your extractive summarization API
+                const apiResponse = await callSummarizationAPI(data);
+                
+                // Show results
+                loading.style.display = 'none';
+                resultContainer.style.display = 'block';
+                resultText.innerHTML = displaySummaryResults(data, apiResponse);
+                
+                // Scroll to results
+                resultContainer.scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                
+                // Show error with helpful message
+                resultContainer.style.display = 'block';
+                resultText.innerHTML = `
+                    <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; padding: 20px; border-radius: 12px;">
+                        <strong>Error: ${error.message}</strong><br><br>
+                        <div style="font-size: 0.9rem; margin-top: 10px;">
+                            <strong>Troubleshooting:</strong><br>
+                            • Make sure the Flask API server is running on port 5000<br>
+                            • Check if all required packages are installed<br>
+                            • Verify your text content is at least 50 characters long<br>
+                            • For web pages, ensure the URL is accessible
+                        </div>
+                    </div>
+                `;
+                
+                resultContainer.scrollIntoView({ behavior: 'smooth' });
+                console.error('API Error:', error);
+            }
+        });
+
+        // Call your extractive summarization API
+        async function callSummarizationAPI(data) {
+            const API_URL = 'http://127.0.0.1:5000/summarize';
+            
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'API request failed');
+            }
+            
+            return await response.json();
+        }
+
+        // Display the summarization results
+        function displaySummaryResults(data, apiResponse) {
+            if (apiResponse && apiResponse.success) {
+                const stats = apiResponse.statistics;
+                
+                return `
+                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <span style="font-size: 1.5rem; margin-right: 10px;">✅</span>
+                            <strong style="font-size: 1.2rem;">Extractive Summary Generated!</strong>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; font-size: 0.9rem;">
+                            <div>
+                                <div style="opacity: 0.8;">Original Text</div>
+                                <div style="font-weight: 600;">${stats.original_sentences} sentences</div>
+                                <div style="font-size: 0.8rem; opacity: 0.7;">${stats.original_length.toLocaleString()} characters</div>
+                            </div>
+                            
+                            <div>
+                                <div style="opacity: 0.8;">Summary</div>
+                                <div style="font-weight: 600;">${stats.summary_sentences} sentences</div>
+                                <div style="font-size: 0.8rem; opacity: 0.7;">${stats.summary_length.toLocaleString()} characters</div>
+                            </div>
+                            
+                            <div>
+                                <div style="opacity: 0.8;">Compression</div>
+                                <div style="font-weight: 600;">${stats.compression_achieved}%</div>
+                                <div style="font-size: 0.8rem; opacity: 0.7;">Achieved</div>
+                            </div>
+                            
+                            <div>
+                                <div style="opacity: 0.8;">Method</div>
+                                <div style="font-weight: 600;">${stats.query_used ? 'Query-Focused' : 'Standard'}</div>
+                                <div style="font-size: 0.8rem; opacity: 0.7;">Extractive</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: #ffffff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 25px;">
+                        <h4 style="color: #374151; margin-bottom: 15px; font-size: 1.1rem; display: flex; align-items: center;">
+                            <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 10px;"></span>
+                            Extracted Summary
+                        </h4>
+                        <div style="line-height: 1.8; color: #1f2937; font-size: 1rem; border-left: 4px solid #10b981; padding-left: 20px; background: #f9fafb; padding: 20px; border-radius: 8px;">
+                            ${apiResponse.summary}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Fallback display
+            return `
+                <div style="background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; padding: 20px; border-radius: 12px;">
+                    <strong>⚠️ Demo Mode</strong><br><br>
+                    <strong>Content Type:</strong> ${data.contentType}<br>
+                    <strong>Compression Ratio:</strong> ${data.compressionRatio}%<br>
+                    <strong>Query Focus:</strong> ${data.userQuery}<br><br>
+                    <em>Please start the Flask API server to see actual summarization results.</em>
+                </div>
+            `;
+        }
+
+        // Initialize range value position
+        rangeValue.style.left = '50%';
+    </script>
+</body>
+</html>
