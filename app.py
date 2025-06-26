@@ -58,7 +58,7 @@ class ExtractiveSummarizer:
         try:
             self.model = SentenceTransformer("all-mpnet-base-v2")
             self.stemmer = PorterStemmer()
-            print("✅ Model loaded successfully!")
+            print("Model loaded successfully!")
         except Exception as e:
             print(f"Failed to load model: {e}")
             raise e
@@ -194,11 +194,34 @@ class ExtractiveSummarizer:
                 summary_sentences = self.standard_extractive_summary(
                     corpus, original_sentences, top_k
                 )
-            
-            return " ".join(summary_sentences)
+
+            # Get indices of selected sentences
+            selected_indices = self.get_sentence_indices(original_sentences, summary_sentences)
+
+            return {
+                'summary': " ".join(summary_sentences),
+                'selected_indices': selected_indices,
+                'total_sentences': len(original_sentences)
+            }
             
         except Exception as e:
             return f"Error generating summary: {str(e)}"
+        
+    def get_sentence_indices(self, original_sentences, summary_sentences):
+        """Get indices of sentences used in the summary"""
+        selected_indices = []
+        
+        for summary_sent in summary_sentences:
+            for i, original_sent in enumerate(original_sentences):
+                # Clean both sentences for comparison
+                clean_summary = summary_sent.strip().lower()
+                clean_original = original_sent.strip().lower()
+                
+                if clean_summary == clean_original:
+                    selected_indices.append(i)
+                    break
+        
+        return selected_indices
 
 # Initialize the summarizer
 try:
@@ -273,25 +296,38 @@ def summarize_text():
             return jsonify({'error': 'Text is too short to summarize (minimum 50 characters)'}), 400
         
         # Generate summary
-        summary = summarizer.summarize(
+        summary_result = summarizer.summarize(
             text=processed_text,
             query=user_query,
             compression_ratio=compression_ratio,
             content_type=content_type
         )
-        
+
+        # Handle both old string format and new dict format
+        if isinstance(summary_result, dict):
+            summary = summary_result['summary']
+            selected_indices = summary_result['selected_indices']
+            total_sentences = summary_result['total_sentences']
+        else:
+            # Fallback for error cases
+            summary = summary_result
+            selected_indices = []
+            total_sentences = 0
+
         # Calculate statistics
         original_length = len(processed_text)
         summary_length = len(summary)
         actual_compression = round((1 - summary_length/original_length) * 100, 2) if original_length > 0 else 0
-        
+
         # Count sentences
         original_sentences = len(sent_tokenize(processed_text))
         summary_sentences = len(sent_tokenize(summary))
-        
+
+        # Add selected_indices to the response
         return jsonify({
             'success': True,
             'summary': summary,
+            'selected_indices': selected_indices,
             'statistics': {
                 'original_length': original_length,
                 'summary_length': summary_length,

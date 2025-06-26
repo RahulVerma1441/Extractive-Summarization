@@ -29,7 +29,7 @@
         }
 
         .header {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #434be9 0%, #0a87ed 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -235,6 +235,25 @@
             color: #444;
         }
 
+        .highlighted-sentence {
+            background: linear-gradient(120deg, #a8edea 0%, #fed6e3 100%);
+            border-left: 4px solid #10b981;
+            padding: 2px 4px;
+            margin: 1px 0;
+            border-radius: 3px;
+            animation: highlight-pulse 2s ease-in-out;
+        }
+
+        @keyframes highlight-pulse {
+            0% { background: linear-gradient(120deg, #fbbf24 0%, #f59e0b 100%); }
+            100% { background: linear-gradient(120deg, #a8edea 0%, #fed6e3 100%); }
+        }
+
+        .sentence-highlight {
+            display: inline;
+            transition: all 0.3s ease;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 10px;
@@ -264,7 +283,7 @@
     <div class="container">
         <div class="header">
             <h1>Query Based Text Summarization</h1>
-            <p>Transform any text into concise, query-focused summaries</p>
+            <p>Transform any text into concise, query-focused Extractive summaries</p>
         </div>
 
         <div class="form-container">
@@ -451,6 +470,71 @@
             return await response.json();
         }
 
+        // Global function to show highlighted text
+        function showHighlightedOriginalText(originalText, selectedIndices) {
+            const existingHighlight = document.querySelector('.highlight-container');
+            if (existingHighlight) {
+                existingHighlight.remove();
+            }
+            
+            const highlightContainer = showHighlightedText(originalText, selectedIndices);
+            highlightContainer.className = 'highlight-container';
+            
+            const resultContainer = document.getElementById('resultContainer');
+            resultContainer.appendChild(highlightContainer);
+            
+            // Scroll to the highlighted text
+            highlightContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Function to highlight selected sentences in the text content
+        function highlightSelectedSentences(originalText, selectedIndices) {
+            if (!selectedIndices || selectedIndices.length === 0) {
+                return originalText;
+            }
+            
+            // Split text into sentences (simple approach)
+            const sentences = originalText.match(/[^\.!?]+[\.!?]+/g) || [originalText];
+            
+            // Create highlighted HTML
+            let highlightedText = sentences.map((sentence, index) => {
+                if (selectedIndices.includes(index)) {
+                    return `<span class="highlighted-sentence sentence-highlight">${sentence}</span>`;
+                }
+                return `<span class="sentence-highlight">${sentence}</span>`;
+            }).join('');
+            
+            return highlightedText;
+        }
+
+        // Function to show original text with highlights
+        function showHighlightedText(originalText, selectedIndices) {
+            const highlightedHtml = highlightSelectedSentences(originalText, selectedIndices);
+            
+            // Create a modal or expandable section to show highlighted text
+            const highlightContainer = document.createElement('div');
+            highlightContainer.innerHTML = `
+                <div style="background: #f8fafc; border: 2px solid #e1e8ed; border-radius: 12px; padding: 20px; margin-top: 20px;">
+                    <h4 style="color: #374151; margin-bottom: 15px; display: flex; align-items: center;">
+                        <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 10px;"></span>
+                        Original Text with Highlighted Extractions
+                        <button onclick="this.parentElement.parentElement.style.display='none'" 
+                                style="margin-left: auto; background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer;">
+                            ✕ Close
+                        </button>
+                    </h4>
+                    <div style="max-height: 400px; overflow-y: auto; line-height: 1.8; color: #1f2937; background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        ${highlightedHtml}
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.9rem; color: #6b7280;">
+                        <strong>${selectedIndices.length}</strong> sentences were extracted for the summary
+                    </div>
+                </div>
+            `;
+            
+            return highlightContainer;
+        }
+
         // Display the summarization results
         function displaySummaryResults(data, apiResponse) {
             if (apiResponse && apiResponse.success) {
@@ -458,12 +542,14 @@
                 
                 return `
                     <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                        <!-- Your existing stats HTML -->
                         <div style="display: flex; align-items: center; margin-bottom: 15px;">
                             <span style="font-size: 1.5rem; margin-right: 10px;">✅</span>
                             <strong style="font-size: 1.2rem;">Extractive Summary Generated!</strong>
                         </div>
                         
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; font-size: 0.9rem;">
+                            <!-- Your existing grid items -->
                             <div>
                                 <div style="opacity: 0.8;">Original Text</div>
                                 <div style="font-weight: 600;">${stats.original_sentences} sentences</div>
@@ -498,6 +584,11 @@
                         <div style="line-height: 1.8; color: #1f2937; font-size: 1rem; border-left: 4px solid #10b981; padding-left: 20px; background: #f9fafb; padding: 20px; border-radius: 8px;">
                             ${apiResponse.summary}
                         </div>
+                        
+                        <button onclick="showHighlightedOriginalText('${data.textContent.replace(/'/g, "\\'")}', ${JSON.stringify(apiResponse.selected_indices || [])})" 
+                                style="margin-top: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s ease;">
+                            🔍 Show Highlighted Original Text
+                        </button>
                     </div>
                 `;
             }
